@@ -1,0 +1,20 @@
+{
+  "name": "relsoft-teamflow-api",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "vercel dev",
+    "build": "tsc",
+    "lint": "eslint api/**/*.ts"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.0",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@vercel/node": "^3.2.0",
+    "typescript": "^5.5.0",
+    "eslint": "^9.0.0"
+  }
+}

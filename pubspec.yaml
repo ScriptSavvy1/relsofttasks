@@ -1,0 +1,68 @@
+name: relsoft_teamflow
+description: Relsoft TeamFlow - Internal team productivity app for meetings, tasks, and team management.
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.4.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # Supabase
+  supabase_flutter: ^2.0.0
+
+  # State Management
+  flutter_riverpod: ^2.0.0
+
+  # Routing
+  go_router: ^14.0.0
+
+  # Serialization
+  freezed_annotation: ^2.4.0
+  json_annotation: ^4.9.0
+
+  # UI
+  google_fonts: ^6.0.0
+  flutter_svg: ^2.0.0
+  cached_network_image: ^3.0.0
+  shimmer: ^3.0.0
+  flutter_animate: ^4.0.0
+  fl_chart: ^0.69.0
+  timeago: ^3.0.0
+
+  # File Handling
+  image_picker: ^1.0.0
+  file_picker: ^8.0.0
+
+  # Notifications
+  flutter_local_notifications: ^18.0.0
+
+  # Utils
+  intl: any
+  url_launcher: ^6.0.0
+  uuid: ^4.0.0
+  flutter_dotenv: ^5.0.0
+  logger: ^2.0.0
+
+  # Icons
+  cupertino_icons: ^1.0.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  build_runner: ^2.0.0
+  freezed: ^2.0.0
+  json_serializable: ^6.0.0
+  mocktail: ^1.0.0
+  flutter_lints: ^5.0.0
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - .env
+    - assets/images/
+    - assets/icons/
