@@ -1,6 +1,8 @@
 {
   "version": 2,
-  "buildCommand": "",
+  "framework": null,
+  "installCommand": "echo 'No install needed'",
+  "buildCommand": "echo 'Pre-built Flutter web app'",
   "outputDirectory": "build/web",
   "routes": [
     {
