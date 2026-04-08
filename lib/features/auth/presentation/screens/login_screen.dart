@@ -47,8 +47,18 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             password: _passwordController.text,
           );
 
-      if (mounted) {
+      // Check if the state has an error after signIn
+      final authState = ref.read(authControllerProvider);
+      if (authState.hasError) {
+        setState(() {
+          _errorMessage = authState.error.toString().replaceAll('Exception: ', '');
+        });
+      } else if (authState.hasValue && authState.value != null && mounted) {
         context.go(RouteNames.dashboard);
+      } else {
+        setState(() {
+          _errorMessage = 'Sign in failed. Please check your credentials.';
+        });
       }
     } catch (e) {
       setState(() {
