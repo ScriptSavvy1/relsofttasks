@@ -34,13 +34,51 @@ class AuthRepositoryImpl implements AuthRepository {
         );
       }
 
+      final user = response.user!;
+
       // STEP 2: Fetch profile
-      debugPrint('[AUTH] Step 2: Fetching profile for userId=${response.user!.id}');
-      final profile = await getCurrentProfile();
+      debugPrint('[AUTH] Step 2: Fetching profile for userId=${user.id}');
+      UserProfile? profile;
+      try {
+        profile = await getCurrentProfile();
+      } catch (e, st) {
+        debugPrint('[AUTH] Step 2 FAILED (database error): $e');
+        debugPrint('[AUTH] Step 2 Stack trace: $st');
+        throw AppAuthException(
+          message: 'Failed to load user profile: $e',
+          code: 'PROFILE_FETCH_ERROR',
+          originalError: e,
+        );
+      }
       debugPrint('[AUTH] Step 2 result: profile=${profile?.fullName ?? "NULL"}');
+
+      // STEP 2b: If no profile found, attempt to create a minimal one
+      if (profile == null) {
+        debugPrint('[AUTH] Step 2b: No profile found, creating minimal profile for ${user.id}');
+        try {
+          final meta = user.userMetadata ?? {};
+          final fullName = meta['full_name'] as String? ??
+              email.trim().split('@').first;
+          final role = meta['role'] as String? ?? 'staff';
+
+          await _client.from(SupabaseConstants.profilesTable).insert({
+            'id': user.id,
+            'email': user.email ?? email.trim(),
+            'full_name': fullName,
+            'role': role,
+          });
+          debugPrint('[AUTH] Step 2b: Minimal profile created, re-fetching...');
+          profile = await getCurrentProfile();
+        } catch (e, st) {
+          debugPrint('[AUTH] Step 2b: Failed to create minimal profile: $e');
+          debugPrint('[AUTH] Step 2b Stack trace: $st');
+        }
+      }
+
       if (profile == null) {
         throw const AppAuthException(
-          message: 'User profile not found.',
+          message:
+              'User profile not found. Please contact support or complete onboarding.',
           code: 'PROFILE_NOT_FOUND',
         );
       }
@@ -50,24 +88,32 @@ class AuthRepositoryImpl implements AuthRepository {
       if (!profile.isActive) {
         await _client.auth.signOut();
         throw const AppAuthException(
-          message: 'Your account has been deactivated. Contact an administrator.',
+          message:
+              'Your account has been deactivated. Contact an administrator.',
           code: 'ACCOUNT_DEACTIVATED',
         );
       }
 
       // STEP 4: Update last seen
       debugPrint('[AUTH] Step 4: Updating last_seen_at');
-      await _client
-          .from(SupabaseConstants.profilesTable)
-          .update({'last_seen_at': DateTime.now().toIso8601String()})
-          .eq('id', response.user!.id);
-      debugPrint('[AUTH] Step 4 SUCCESS: login complete');
+      try {
+        await _client
+            .from(SupabaseConstants.profilesTable)
+            .update({'last_seen_at': DateTime.now().toIso8601String()})
+            .eq('id', user.id);
+        debugPrint('[AUTH] Step 4 SUCCESS: login complete');
+      } catch (e, st) {
+        // Non-fatal: don't block login for a last_seen update failure
+        debugPrint('[AUTH] Step 4 WARNING: last_seen update failed: $e');
+        debugPrint('[AUTH] Step 4 Stack trace: $st');
+      }
 
       return profile;
     } on AppAuthException {
       rethrow;
     } on AuthException catch (e) {
-      debugPrint('[AUTH] AuthException: ${e.message} | statusCode: ${e.statusCode}');
+      debugPrint(
+          '[AUTH] AuthException: ${e.message} | statusCode: ${e.statusCode}');
       throw AppAuthException(
         message: _mapAuthError(e.message),
         originalError: e,
@@ -114,23 +160,26 @@ class AuthRepositoryImpl implements AuthRepository {
   @override
   Future<UserProfile?> getCurrentProfile() async {
     final userId = currentUserId;
-    if (userId == null) return null;
-
-    try {
-      debugPrint('[AUTH] getCurrentProfile: querying profiles table for userId=$userId');
-      final data = await _client
-          .from(SupabaseConstants.profilesTable)
-          .select()
-          .eq('id', userId)
-          .single();
-
-      debugPrint('[AUTH] getCurrentProfile: SUCCESS');
-      return UserProfileModel.fromJson(data);
-    } catch (e, st) {
-      debugPrint('[AUTH] getCurrentProfile FAILED: $e');
-      debugPrint('[AUTH] Stack trace: $st');
+    if (userId == null) {
+      debugPrint('[AUTH] getCurrentProfile: No current user ID, returning null');
       return null;
     }
+
+    debugPrint(
+        '[AUTH] getCurrentProfile: querying ${SupabaseConstants.profilesTable} for userId=$userId');
+    final data = await _client
+        .from(SupabaseConstants.profilesTable)
+        .select()
+        .eq('id', userId)
+        .maybeSingle();
+
+    if (data == null) {
+      debugPrint('[AUTH] getCurrentProfile: No profile row found');
+      return null;
+    }
+
+    debugPrint('[AUTH] getCurrentProfile: SUCCESS, parsing profile');
+    return UserProfileModel.fromJson(data);
   }
 
   @override
