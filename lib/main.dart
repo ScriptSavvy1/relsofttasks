@@ -54,6 +54,11 @@ Future<void> main() async {
   }
 
   // 4. Initialize Supabase
+  if (kDebugMode) {
+    print('SUPABASE_URL: $supabaseUrl');
+    print('SUPABASE_ANON_KEY exists: ${supabaseAnonKey.isNotEmpty}');
+  }
+
   await Supabase.initialize(
     url: supabaseUrl,
     anonKey: supabaseAnonKey,

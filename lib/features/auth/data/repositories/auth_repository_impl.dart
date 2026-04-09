@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../domain/entities/user_profile.dart';
@@ -18,10 +19,13 @@ class AuthRepositoryImpl implements AuthRepository {
     required String password,
   }) async {
     try {
+      // STEP 1: Auth sign-in
+      debugPrint('[AUTH] Step 1: Attempting signInWithPassword for $email');
       final response = await _client.auth.signInWithPassword(
         email: email.trim(),
         password: password,
       );
+      debugPrint('[AUTH] Step 1 SUCCESS: userId=${response.user?.id}');
 
       if (response.user == null) {
         throw const AppAuthException(
@@ -30,8 +34,10 @@ class AuthRepositoryImpl implements AuthRepository {
         );
       }
 
-      // Fetch the full profile
+      // STEP 2: Fetch profile
+      debugPrint('[AUTH] Step 2: Fetching profile for userId=${response.user!.id}');
       final profile = await getCurrentProfile();
+      debugPrint('[AUTH] Step 2 result: profile=${profile?.fullName ?? "NULL"}');
       if (profile == null) {
         throw const AppAuthException(
           message: 'User profile not found.',
@@ -39,7 +45,8 @@ class AuthRepositoryImpl implements AuthRepository {
         );
       }
 
-      // Check if user is active
+      // STEP 3: Check active
+      debugPrint('[AUTH] Step 3: Checking isActive=${profile.isActive}');
       if (!profile.isActive) {
         await _client.auth.signOut();
         throw const AppAuthException(
@@ -48,21 +55,26 @@ class AuthRepositoryImpl implements AuthRepository {
         );
       }
 
-      // Update last seen
+      // STEP 4: Update last seen
+      debugPrint('[AUTH] Step 4: Updating last_seen_at');
       await _client
           .from(SupabaseConstants.profilesTable)
           .update({'last_seen_at': DateTime.now().toIso8601String()})
           .eq('id', response.user!.id);
+      debugPrint('[AUTH] Step 4 SUCCESS: login complete');
 
       return profile;
     } on AppAuthException {
       rethrow;
     } on AuthException catch (e) {
+      debugPrint('[AUTH] AuthException: ${e.message} | statusCode: ${e.statusCode}');
       throw AppAuthException(
         message: _mapAuthError(e.message),
         originalError: e,
       );
-    } catch (e) {
+    } catch (e, st) {
+      debugPrint('[AUTH] UNEXPECTED ERROR: $e');
+      debugPrint('[AUTH] Stack trace: $st');
       throw AppAuthException(
         message: 'An unexpected error occurred during sign in.',
         originalError: e,
@@ -105,14 +117,18 @@ class AuthRepositoryImpl implements AuthRepository {
     if (userId == null) return null;
 
     try {
+      debugPrint('[AUTH] getCurrentProfile: querying profiles table for userId=$userId');
       final data = await _client
           .from(SupabaseConstants.profilesTable)
           .select()
           .eq('id', userId)
           .single();
 
+      debugPrint('[AUTH] getCurrentProfile: SUCCESS');
       return UserProfileModel.fromJson(data);
-    } catch (e) {
+    } catch (e, st) {
+      debugPrint('[AUTH] getCurrentProfile FAILED: $e');
+      debugPrint('[AUTH] Stack trace: $st');
       return null;
     }
   }
