@@ -6,7 +6,6 @@
 .pub-cache/
 .pub/
 build/
-!build/web/
 *.dart_tool
 *.g.dart
 *.freezed.dart
