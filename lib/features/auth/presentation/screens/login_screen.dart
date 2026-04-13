@@ -275,6 +275,32 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               onPressed: _handleLogin,
               icon: Icons.login_rounded,
             ),
+
+            const SizedBox(height: AppSpacing.xl),
+
+            // Sign up link
+            Center(
+              child: TextButton(
+                onPressed: () => context.push(RouteNames.signUp),
+                child: RichText(
+                  text: TextSpan(
+                    text: "Don't have an account? ",
+                    style: AppTextStyles.bodyMedium.copyWith(
+                      color: AppColors.darkTextSecondary,
+                    ),
+                    children: [
+                      TextSpan(
+                        text: 'Sign Up',
+                        style: AppTextStyles.bodyMedium.copyWith(
+                          color: AppColors.primary,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
           ],
         ),
       ),

@@ -129,6 +129,68 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   @override
+  Future<UserProfile> signUp({
+    required String email,
+    required String password,
+    required String fullName,
+  }) async {
+    try {
+      debugPrint('[AUTH] Attempting signUp for $email');
+      final response = await _client.auth.signUp(
+        email: email.trim(),
+        password: password,
+        data: {'full_name': fullName.trim(), 'role': 'staff'},
+      );
+
+      if (response.user == null) {
+        throw const AppAuthException(
+          message: 'Sign up failed.',
+          code: 'SIGN_UP_FAILED',
+        );
+      }
+
+      final user = response.user!;
+
+      // Profile is usually created via Supabase Trigger (database function)
+      // but we'll try to fetch it or create it manually here to be safe
+      UserProfile? profile = await getCurrentProfile();
+
+      if (profile == null) {
+        debugPrint('[AUTH] Creating profile manually after signUp');
+        await _client.from(SupabaseConstants.profilesTable).insert({
+          'id': user.id,
+          'email': user.email ?? email.trim(),
+          'full_name': fullName.trim(),
+          'role': 'staff',
+        });
+        profile = await getCurrentProfile();
+      }
+
+      if (profile == null) {
+        throw const AppAuthException(
+          message: 'Failed to create user profile.',
+          code: 'PROFILE_CREATION_FAILED',
+        );
+      }
+
+      return profile;
+    } on AuthException catch (e) {
+      debugPrint('[AUTH] AuthException: ${e.message}');
+      throw AppAuthException(
+        message: _mapAuthError(e.message),
+        originalError: e,
+      );
+    } catch (e, st) {
+      debugPrint('[AUTH] UNEXPECTED ERROR: $e');
+      debugPrint('[AUTH] Stack trace: $st');
+      throw AppAuthException(
+        message: 'An unexpected error occurred during sign up.',
+        originalError: e,
+      );
+    }
+  }
+
+  @override
   Future<void> signOut() async {
     try {
       await _client.auth.signOut();

@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../constants/route_names.dart';
 import '../../features/auth/presentation/screens/login_screen.dart';
+import '../../features/auth/presentation/screens/sign_up_screen.dart';
 import '../../features/auth/presentation/screens/forgot_password_screen.dart';
 import '../../features/auth/presentation/screens/splash_screen.dart';
 import '../../features/dashboard/presentation/screens/dashboard_screen.dart';
@@ -38,6 +39,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       final session = Supabase.instance.client.auth.currentSession;
       final isLoggedIn = session != null;
       final isAuthRoute = state.matchedLocation == RouteNames.login ||
+          state.matchedLocation == RouteNames.signUp ||
           state.matchedLocation == RouteNames.forgotPassword ||
           state.matchedLocation == RouteNames.splash;
 
@@ -63,6 +65,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: RouteNames.login,
         builder: (context, state) => const LoginScreen(),
+      ),
+      GoRoute(
+        path: RouteNames.signUp,
+        builder: (context, state) => const SignUpScreen(),
       ),
       GoRoute(
         path: RouteNames.forgotPassword,
