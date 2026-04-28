@@ -201,7 +201,6 @@ class MeetingDetailScreen extends ConsumerWidget {
             const SizedBox(height: AppSpacing.huge),
           ],
         ),
-      ),
     );
   }
 }

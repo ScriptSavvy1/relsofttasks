@@ -5,7 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/enums/task_status.dart';
-import 'tasks_list_screen.dart';
+import '../widgets/task_card.dart';
 
 class TeamTasksScreen extends ConsumerWidget {
   const TeamTasksScreen({super.key});
