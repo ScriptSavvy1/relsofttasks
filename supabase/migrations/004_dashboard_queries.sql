@@ -4,16 +4,23 @@
 --
 -- Provides a simple RPC function for dashboard stats.
 -- Called via: supabase.rpc('get_dashboard_stats')
+--
+-- Uses auth.uid() internally to prevent IDOR — callers cannot
+-- request another user's stats.
 -- ============================================================
 
--- Simple dashboard stats - returns counts as a JSON object
-CREATE OR REPLACE FUNCTION public.get_dashboard_stats(p_user_id UUID)
+-- Drop old signature if it exists (parameter changed)
+DROP FUNCTION IF EXISTS public.get_dashboard_stats(UUID);
+
+-- Dashboard stats scoped to the calling user via auth.uid()
+CREATE OR REPLACE FUNCTION public.get_dashboard_stats()
 RETURNS JSON
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
 AS $$
 DECLARE
+    v_uid  UUID := auth.uid();
     v_role TEXT;
     v_total_tasks BIGINT;
     v_overdue BIGINT;
@@ -21,12 +28,21 @@ DECLARE
     v_meetings BIGINT;
     v_staff BIGINT;
 BEGIN
-    -- Get user role
+    -- Reject anonymous / service-role-less calls
+    IF v_uid IS NULL THEN
+        RETURN json_build_object(
+            'total_active_tasks', 0,
+            'overdue_tasks', 0,
+            'completed_this_month', 0,
+            'meetings_this_week', 0,
+            'total_staff', 0
+        );
+    END IF;
+
     SELECT role INTO v_role
     FROM profiles
-    WHERE id = p_user_id;
+    WHERE id = v_uid;
 
-    -- If user not found, return empty
     IF v_role IS NULL THEN
         RETURN json_build_object(
             'total_active_tasks', 0,
@@ -46,7 +62,7 @@ BEGIN
     ELSE
         SELECT count(*) INTO v_total_tasks
         FROM tasks
-        WHERE assigned_to = p_user_id
+        WHERE assigned_to = v_uid
         AND status IN ('pending', 'in_progress', 'blocked')
         AND deleted_at IS NULL;
     END IF;
@@ -61,7 +77,7 @@ BEGIN
     ELSE
         SELECT count(*) INTO v_overdue
         FROM tasks
-        WHERE assigned_to = p_user_id
+        WHERE assigned_to = v_uid
         AND status IN ('pending', 'in_progress', 'blocked')
         AND due_date < now()
         AND deleted_at IS NULL;
@@ -77,7 +93,7 @@ BEGIN
     ELSE
         SELECT count(*) INTO v_completed
         FROM tasks
-        WHERE assigned_to = p_user_id
+        WHERE assigned_to = v_uid
         AND status = 'completed'
         AND completed_at >= date_trunc('month', now())
         AND deleted_at IS NULL;
@@ -94,13 +110,13 @@ BEGIN
         SELECT count(*) INTO v_meetings
         FROM meeting_attendees ma
         JOIN meetings m ON m.id = ma.meeting_id
-        WHERE ma.user_id = p_user_id
+        WHERE ma.user_id = v_uid
         AND m.scheduled_at >= date_trunc('week', now())
         AND m.scheduled_at < date_trunc('week', now()) + interval '7 days'
         AND m.deleted_at IS NULL;
     END IF;
 
-    -- Count total active staff (admin only)
+    -- Total active staff (visible to all, low-sensitivity count)
     SELECT count(*) INTO v_staff
     FROM profiles
     WHERE is_active = true;
@@ -115,5 +131,4 @@ BEGIN
 END;
 $$;
 
--- Grant access
-GRANT EXECUTE ON FUNCTION public.get_dashboard_stats(UUID) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.get_dashboard_stats() TO authenticated;

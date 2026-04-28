@@ -9,6 +9,7 @@ import '../../../../core/theme/app_text_styles.dart';
 import '../../../../core/constants/route_names.dart';
 import '../../../../core/widgets/cards.dart';
 import '../../../../core/widgets/shared_widgets.dart';
+import '../../../auth/domain/entities/user_profile.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 
 class DashboardScreen extends ConsumerWidget {
@@ -220,7 +221,7 @@ class DashboardScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildQuickActions(BuildContext context, dynamic profile) {
+  Widget _buildQuickActions(BuildContext context, UserProfile profile) {
     return Padding(
       padding: const EdgeInsets.all(AppSpacing.screenPadding),
       child: Column(
@@ -241,7 +242,7 @@ class DashboardScreen extends ConsumerWidget {
                     icon: Icons.add_rounded,
                     label: 'New Meeting',
                     color: AppColors.secondary,
-                    onTap: () => context.push('/meetings/create'),
+                    onTap: () => context.push(RouteNames.meetingCreate),
                   ),
                 ),
               const SizedBox(width: AppSpacing.md),
@@ -251,7 +252,7 @@ class DashboardScreen extends ConsumerWidget {
                     icon: Icons.add_task_rounded,
                     label: 'New Task',
                     color: AppColors.primary,
-                    onTap: () => context.push('/tasks/create'),
+                    onTap: () => context.push(RouteNames.taskCreate),
                   ),
                 ),
               const SizedBox(width: AppSpacing.md),

@@ -28,8 +28,18 @@ class MeetingDetailScreen extends ConsumerWidget {
             icon: const Icon(Icons.edit_outlined),
             onPressed: () => context.push('/meetings/$meetingId/edit'),
           ),
-          PopupMenuButton(
+          PopupMenuButton<String>(
             icon: const Icon(Icons.more_vert_rounded),
+            onSelected: (value) {
+              switch (value) {
+                case 'delete':
+                  _showDeleteConfirmation(context);
+                case 'export':
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Export coming soon')),
+                  );
+              }
+            },
             itemBuilder: (context) => [
               const PopupMenuItem(value: 'delete', child: Text('Delete Meeting')),
               const PopupMenuItem(value: 'export', child: Text('Export Notes')),
@@ -37,7 +47,35 @@ class MeetingDetailScreen extends ConsumerWidget {
           ),
         ],
       ),
-      body: SingleChildScrollView(
+      body: _buildBody(context),
+    );
+  }
+
+  void _showDeleteConfirmation(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete Meeting'),
+        content: const Text('Are you sure you want to delete this meeting? This action cannot be undone.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              context.pop();
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Meeting deleted')),
+              );
+            },
+            child: const Text('Delete', style: TextStyle(color: AppColors.error)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBody(BuildContext context) {
+    return SingleChildScrollView(
         padding: const EdgeInsets.all(AppSpacing.screenPadding),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -63,7 +101,7 @@ class MeetingDetailScreen extends ConsumerWidget {
                       ),
                       const Spacer(),
                       Text(
-                        'ID: ${meetingId.substring(0, 8)}',
+                        'ID: ${meetingId.length >= 8 ? meetingId.substring(0, 8) : meetingId}',
                         style: AppTextStyles.caption,
                       ),
                     ],

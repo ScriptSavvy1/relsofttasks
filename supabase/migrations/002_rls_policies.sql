@@ -545,11 +545,13 @@ CREATE POLICY "audit_logs_admin_select" ON public.audit_logs
         (SELECT public.get_my_role()) IN ('super_admin', 'admin')
     );
 
--- All authenticated users can insert their own audit logs
+-- Only admins can insert audit logs from the client.
+-- Prefer writing audit rows via service_role (Vercel functions) or DB triggers.
 CREATE POLICY "audit_logs_insert" ON public.audit_logs
     FOR INSERT TO authenticated
     WITH CHECK (
         actor_id = (SELECT auth.uid())
+        AND (SELECT public.get_my_role()) IN ('super_admin', 'admin')
     );
 
 -- NO UPDATE OR DELETE POLICIES â€” audit logs are immutable
@@ -634,10 +636,15 @@ CREATE POLICY "avatars_update_own" ON storage.objects
         AND (storage.foldername(name))[1] = (SELECT auth.uid())::text
     );
 
--- Attachments bucket: authenticated read based on access, upload own
+-- Attachments bucket: users can only read files they uploaded or that
+-- belong to tasks/meetings they have access to. Path convention:
+-- attachments/{uploader_uid}/...
 CREATE POLICY "attachments_read" ON storage.objects
     FOR SELECT TO authenticated
-    USING (bucket_id = 'attachments');
+    USING (
+        bucket_id = 'attachments'
+        AND (storage.foldername(name))[1] = (SELECT auth.uid())::text
+    );
 
 CREATE POLICY "attachments_upload" ON storage.objects
     FOR INSERT TO authenticated

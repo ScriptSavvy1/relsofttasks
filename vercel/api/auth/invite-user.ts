@@ -1,4 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { randomBytes } from 'crypto';
 import { verifyAuth } from '../../lib/auth-middleware';
 import { createAdminClient } from '../../lib/supabase-admin';
 import { inviteUserSchema } from '../../lib/validators';
@@ -15,6 +16,7 @@ import { inviteUserSchema } from '../../lib/validators';
  * 3. Creates the profile record
  * 4. Adds team membership
  * 5. Creates an audit log entry
+ * 6. Returns success — password is never exposed in the response
  *
  * Uses service_role key — privileged operation.
  */
@@ -22,16 +24,13 @@ export default async function handler(
   req: VercelRequest,
   res: VercelResponse
 ) {
-  // Only accept POST
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  // Verify auth — only admins can invite
   const user = await verifyAuth(req, res, ['super_admin', 'admin']);
-  if (!user) return; // Response already sent by middleware
+  if (!user) return;
 
-  // Validate input
   const validation = inviteUserSchema.safeParse(req.body);
   if (!validation.success) {
     return res.status(400).json({
@@ -45,7 +44,6 @@ export default async function handler(
   const supabase = createAdminClient();
 
   try {
-    // Check if user already exists
     const { data: existingProfile } = await supabase
       .from('profiles')
       .select('id')
@@ -59,7 +57,7 @@ export default async function handler(
       });
     }
 
-    // Prevent privilege escalation: admin cannot create super_admin
+    // Prevent privilege escalation: admin cannot create another admin
     if (user.role === 'admin' && role === 'admin') {
       return res.status(403).json({
         error: 'Forbidden',
@@ -67,15 +65,13 @@ export default async function handler(
       });
     }
 
-    // Generate a temporary password
     const tempPassword = generateTempPassword();
 
-    // Create auth user
     const { data: authData, error: authError } =
       await supabase.auth.admin.createUser({
         email,
         password: tempPassword,
-        email_confirm: true, // Auto-confirm for internal users
+        email_confirm: true,
         user_metadata: {
           full_name,
           role,
@@ -86,29 +82,34 @@ export default async function handler(
       console.error('Failed to create auth user:', authError);
       return res.status(500).json({
         error: 'Failed to create user',
-        message: authError.message,
+        message: 'Could not create the authentication record',
       });
     }
 
     const newUserId = authData.user.id;
 
-    // Update profile with additional fields (trigger already created basic profile)
-    await supabase
+    const { error: profileError } = await supabase
       .from('profiles')
-      .update({
-        job_title: job_title || null,
-      })
+      .update({ job_title: job_title || null })
       .eq('id', newUserId);
 
-    // Add team membership
-    await supabase.from('team_memberships').insert({
-      user_id: newUserId,
-      department_id,
-      role_in_team: role === 'team_lead' ? 'lead' : 'member',
-    });
+    if (profileError) {
+      console.error('Failed to update profile:', profileError);
+    }
 
-    // Create audit log
-    await supabase.from('audit_logs').insert({
+    const { error: membershipError } = await supabase
+      .from('team_memberships')
+      .insert({
+        user_id: newUserId,
+        department_id,
+        role_in_team: role === 'team_lead' ? 'lead' : 'member',
+      });
+
+    if (membershipError) {
+      console.error('Failed to add team membership:', membershipError);
+    }
+
+    const { error: auditError } = await supabase.from('audit_logs').insert({
       actor_id: user.id,
       action: 'user.created',
       entity_type: 'user',
@@ -116,16 +117,19 @@ export default async function handler(
       new_values: { email, full_name, role, department_id },
     });
 
-    // TODO: Send welcome email with temporary password
-    // This would integrate with an email service like Resend, SendGrid, etc.
+    if (auditError) {
+      console.error('Failed to create audit log:', auditError);
+    }
+
+    // TODO: Send welcome email with temporary password via Resend / SendGrid.
+    // The password is intentionally never returned in the HTTP response.
 
     return res.status(201).json({
       success: true,
-      message: 'User invited successfully',
+      message: 'User invited successfully. Temporary password must be delivered via email.',
       data: {
         user_id: newUserId,
         email,
-        temporary_password: tempPassword, // In production, send via email only
       },
     });
   } catch (error) {
@@ -140,9 +144,10 @@ export default async function handler(
 function generateTempPassword(): string {
   const chars =
     'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#$%';
+  const bytes = randomBytes(16);
   let password = '';
   for (let i = 0; i < 16; i++) {
-    password += chars.charAt(Math.floor(Math.random() * chars.length));
+    password += chars.charAt(bytes[i] % chars.length);
   }
   return password;
 }

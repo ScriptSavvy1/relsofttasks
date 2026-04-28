@@ -6,6 +6,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../core/constants/route_names.dart';
+import '../../domain/entities/user_profile.dart';
 import '../providers/auth_providers.dart';
 
 class SplashScreen extends ConsumerStatefulWidget {
@@ -16,32 +17,35 @@ class SplashScreen extends ConsumerStatefulWidget {
 }
 
 class _SplashScreenState extends ConsumerState<SplashScreen> {
+  bool _navigated = false;
+
   @override
   void initState() {
     super.initState();
-    _checkAuth();
+    _waitThenNavigate();
   }
 
-  Future<void> _checkAuth() async {
-    // Wait for splash animation
+  Future<void> _waitThenNavigate() async {
     await Future.delayed(const Duration(milliseconds: 1500));
-
     if (!mounted) return;
+    _navigate(ref.read(authControllerProvider));
+  }
 
-    final authState = ref.read(authControllerProvider);
+  void _navigate(AsyncValue<UserProfile?> authState) {
+    if (_navigated || !mounted) return;
+
     authState.when(
       data: (profile) {
+        _navigated = true;
         if (profile != null) {
           context.go(RouteNames.dashboard);
         } else {
           context.go(RouteNames.login);
         }
       },
-      loading: () {
-        // Still loading, wait
-        Future.delayed(const Duration(seconds: 1), _checkAuth);
-      },
+      loading: () {},
       error: (_, __) {
+        _navigated = true;
         context.go(RouteNames.login);
       },
     );
@@ -49,6 +53,10 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<AsyncValue<UserProfile?>>(authControllerProvider, (_, next) {
+      _navigate(next);
+    });
+
     return Scaffold(
       backgroundColor: AppColors.darkBg,
       body: Center(

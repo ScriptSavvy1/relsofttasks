@@ -29,8 +29,37 @@ class TaskDetailScreen extends ConsumerWidget {
             icon: const Icon(Icons.edit_outlined),
             onPressed: () => context.push('/tasks/$taskId/edit'),
           ),
-          PopupMenuButton(
+          PopupMenuButton<String>(
             icon: const Icon(Icons.more_vert_rounded),
+            onSelected: (value) {
+              switch (value) {
+                case 'delete':
+                  showDialog(
+                    context: context,
+                    builder: (ctx) => AlertDialog(
+                      title: const Text('Delete Task'),
+                      content: const Text('Are you sure you want to delete this task?'),
+                      actions: [
+                        TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+                        TextButton(
+                          onPressed: () {
+                            Navigator.pop(ctx);
+                            context.pop();
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Task deleted')),
+                            );
+                          },
+                          child: const Text('Delete', style: TextStyle(color: AppColors.error)),
+                        ),
+                      ],
+                    ),
+                  );
+                case 'reassign':
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Reassign coming soon')),
+                  );
+              }
+            },
             itemBuilder: (context) => [
               const PopupMenuItem(value: 'delete', child: Text('Delete Task')),
               const PopupMenuItem(value: 'reassign', child: Text('Reassign')),

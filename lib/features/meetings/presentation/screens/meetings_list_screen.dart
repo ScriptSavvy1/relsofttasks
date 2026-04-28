@@ -6,6 +6,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_text_styles.dart';
+import '../../../../core/constants/route_names.dart';
 import '../../../../core/enums/task_status.dart';
 import '../../../../core/widgets/shared_widgets.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
@@ -117,7 +118,7 @@ class _MeetingsListScreenState extends ConsumerState<MeetingsListScreen> {
 
   Widget _buildAddButton(BuildContext context) {
     return GestureDetector(
-      onTap: () => context.push('/meetings/create'),
+      onTap: () => context.push(RouteNames.meetingCreate),
       child: Container(
         padding: const EdgeInsets.symmetric(
           horizontal: AppSpacing.lg,

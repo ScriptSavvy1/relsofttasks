@@ -1,9 +1,11 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../constants/route_names.dart';
+import '../network/supabase_client_provider.dart';
 import '../../features/auth/presentation/screens/login_screen.dart';
 import '../../features/auth/presentation/screens/sign_up_screen.dart';
 import '../../features/auth/presentation/screens/forgot_password_screen.dart';
@@ -29,27 +31,30 @@ final _rootNavigatorKey = GlobalKey<NavigatorState>();
 final _shellNavigatorKey = GlobalKey<NavigatorState>();
 
 final appRouterProvider = Provider<GoRouter>((ref) {
+  final authNotifier = ref.watch(goRouterAuthNotifierProvider);
+
   return GoRouter(
     navigatorKey: _rootNavigatorKey,
     initialLocation: RouteNames.splash,
-    debugLogDiagnostics: true,
+    debugLogDiagnostics: kDebugMode,
+    refreshListenable: authNotifier,
 
-    // Redirect logic based on auth state
     redirect: (context, state) {
       final session = Supabase.instance.client.auth.currentSession;
       final isLoggedIn = session != null;
-      final isAuthRoute = state.matchedLocation == RouteNames.login ||
-          state.matchedLocation == RouteNames.signUp ||
-          state.matchedLocation == RouteNames.forgotPassword ||
-          state.matchedLocation == RouteNames.splash;
 
-      // If not logged in and not on auth route, redirect to login
+      final loc = state.matchedLocation;
+      final isAuthRoute = loc == RouteNames.login ||
+          loc == RouteNames.signUp ||
+          loc == RouteNames.forgotPassword ||
+          loc == RouteNames.splash;
+
       if (!isLoggedIn && !isAuthRoute) {
         return RouteNames.login;
       }
 
-      // If logged in and on login page, redirect to dashboard
-      if (isLoggedIn && state.matchedLocation == RouteNames.login) {
+      // Redirect all auth pages to dashboard when already logged in
+      if (isLoggedIn && isAuthRoute && loc != RouteNames.splash) {
         return RouteNames.dashboard;
       }
 
@@ -115,19 +120,19 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 
       // ── Full-screen Routes (outside shell) ─────────────────
       GoRoute(
-        path: '/meetings/create',
+        path: RouteNames.meetingCreate,
         parentNavigatorKey: _rootNavigatorKey,
         builder: (context, state) => const MeetingFormScreen(),
       ),
       GoRoute(
-        path: '/meetings/:id',
+        path: RouteNames.meetingDetail,
         parentNavigatorKey: _rootNavigatorKey,
         builder: (context, state) => MeetingDetailScreen(
           meetingId: state.pathParameters['id']!,
         ),
       ),
       GoRoute(
-        path: '/meetings/:id/edit',
+        path: RouteNames.meetingEdit,
         parentNavigatorKey: _rootNavigatorKey,
         builder: (context, state) => MeetingFormScreen(
           meetingId: state.pathParameters['id'],
@@ -139,19 +144,19 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const TasksListScreen(),
       ),
       GoRoute(
-        path: '/tasks/create',
+        path: RouteNames.taskCreate,
         parentNavigatorKey: _rootNavigatorKey,
         builder: (context, state) => const TaskFormScreen(),
       ),
       GoRoute(
-        path: '/tasks/:id',
+        path: RouteNames.taskDetail,
         parentNavigatorKey: _rootNavigatorKey,
         builder: (context, state) => TaskDetailScreen(
           taskId: state.pathParameters['id']!,
         ),
       ),
       GoRoute(
-        path: '/tasks/:id/edit',
+        path: RouteNames.taskEdit,
         parentNavigatorKey: _rootNavigatorKey,
         builder: (context, state) => TaskFormScreen(
           taskId: state.pathParameters['id'],
@@ -168,12 +173,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const UsersListScreen(),
       ),
       GoRoute(
-        path: '/users/invite',
+        path: RouteNames.inviteUser,
         parentNavigatorKey: _rootNavigatorKey,
         builder: (context, state) => const InviteUserScreen(),
       ),
       GoRoute(
-        path: '/users/:id',
+        path: RouteNames.userDetail,
         parentNavigatorKey: _rootNavigatorKey,
         builder: (context, state) => UserDetailScreen(
           userId: state.pathParameters['id']!,

@@ -82,8 +82,7 @@ export default async function handler(
 
     const oldAssignee = task.assigned_to;
 
-    // Update the task
-    await supabase
+    const { error: updateError } = await supabase
       .from('tasks')
       .update({
         assigned_to,
@@ -92,19 +91,29 @@ export default async function handler(
       })
       .eq('id', task_id);
 
-    // Create audit log
-    const action = oldAssignee ? 'task.reassigned' : 'task.assigned';
-    await supabase.from('audit_logs').insert({
+    if (updateError) {
+      console.error('Failed to update task:', updateError);
+      return res.status(500).json({
+        error: 'Failed to assign task',
+        message: 'Could not update the task record',
+      });
+    }
+
+    const auditAction = oldAssignee ? 'task.reassigned' : 'task.assigned';
+    const { error: auditError } = await supabase.from('audit_logs').insert({
       actor_id: user.id,
-      action,
+      action: auditAction,
       entity_type: 'task',
       entity_id: task_id,
       old_values: { assigned_to: oldAssignee },
       new_values: { assigned_to },
     });
 
-    // Create notification for the assignee
-    await supabase.from('notifications').insert({
+    if (auditError) {
+      console.error('Failed to create audit log:', auditError);
+    }
+
+    const { error: notifError } = await supabase.from('notifications').insert({
       user_id: assigned_to,
       type: 'task_assigned',
       title: 'New task assigned',
@@ -112,6 +121,10 @@ export default async function handler(
       related_entity_type: 'task',
       related_entity_id: task_id,
     });
+
+    if (notifError) {
+      console.error('Failed to create notification:', notifError);
+    }
 
     return res.status(200).json({
       success: true,
